@@ -1,0 +1,222 @@
+{
+  "n": 26,
+  "configs": [
+    {
+      "key": "A",
+      "name": "纯文本 BM25（基线）",
+      "n": 26,
+      "context_hit": 0.385,
+      "accuracy": 0.385,
+      "completeness": 0.385,
+      "hallucination": 0.0,
+      "avg_ctx_chars": 863.4,
+      "by_intent": {
+        "general": {
+          "context_hit": 0.909,
+          "accuracy": 0.909,
+          "n": 11
+        },
+        "substitute": {
+          "context_hit": 0.0,
+          "accuracy": 0.0,
+          "n": 5
+        },
+        "taboo": {
+          "context_hit": 0.0,
+          "accuracy": 0.0,
+          "n": 10
+        }
+      }
+    },
+    {
+      "key": "B",
+      "name": "纯文本 + 意图路由/规则推理",
+      "n": 26,
+      "context_hit": 0.385,
+      "accuracy": 0.885,
+      "completeness": 0.865,
+      "hallucination": 0.0,
+      "avg_ctx_chars": 863.4,
+      "by_intent": {
+        "general": {
+          "context_hit": 0.909,
+          "accuracy": 0.909,
+          "n": 11
+        },
+        "substitute": {
+          "context_hit": 0.0,
+          "accuracy": 1.0,
+          "n": 5
+        },
+        "taboo": {
+          "context_hit": 0.0,
+          "accuracy": 0.8,
+          "n": 10
+        }
+      }
+    },
+    {
+      "key": "C",
+      "name": "纯图谱结构化召回",
+      "n": 26,
+      "context_hit": 0.346,
+      "accuracy": 0.462,
+      "completeness": 0.462,
+      "hallucination": 0.0,
+      "avg_ctx_chars": 252.7,
+      "by_intent": {
+        "general": {
+          "context_hit": 0.0,
+          "accuracy": 0.0,
+          "n": 11
+        },
+        "substitute": {
+          "context_hit": 1.0,
+          "accuracy": 1.0,
+          "n": 5
+        },
+        "taboo": {
+          "context_hit": 0.4,
+          "accuracy": 0.7,
+          "n": 10
+        }
+      }
+    },
+    {
+      "key": "D",
+      "name": "文本 + 图谱菜谱关联事实",
+      "n": 26,
+      "context_hit": 0.385,
+      "accuracy": 0.885,
+      "completeness": 0.865,
+      "hallucination": 0.0,
+      "avg_ctx_chars": 968.4,
+      "by_intent": {
+        "general": {
+          "context_hit": 0.909,
+          "accuracy": 0.909,
+          "n": 11
+        },
+        "substitute": {
+          "context_hit": 0.0,
+          "accuracy": 1.0,
+          "n": 5
+        },
+        "taboo": {
+          "context_hit": 0.0,
+          "accuracy": 0.8,
+          "n": 10
+        }
+      }
+    },
+    {
+      "key": "E",
+      "name": "文本 + 图谱关系事实",
+      "n": 26,
+      "context_hit": 0.731,
+      "accuracy": 0.885,
+      "completeness": 0.865,
+      "hallucination": 0.0,
+      "avg_ctx_chars": 1011.6,
+      "by_intent": {
+        "general": {
+          "context_hit": 0.909,
+          "accuracy": 0.909,
+          "n": 11
+        },
+        "substitute": {
+          "context_hit": 1.0,
+          "accuracy": 1.0,
+          "n": 5
+        },
+        "taboo": {
+          "context_hit": 0.4,
+          "accuracy": 0.8,
+          "n": 10
+        }
+      }
+    },
+    {
+      "key": "F",
+      "name": "完整两路拼接融合（本系统）",
+      "n": 26,
+      "context_hit": 0.731,
+      "accuracy": 0.885,
+      "completeness": 0.865,
+      "hallucination": 0.0,
+      "avg_ctx_chars": 1116.6,
+      "by_intent": {
+        "general": {
+          "context_hit": 0.909,
+          "accuracy": 0.909,
+          "n": 11
+        },
+        "substitute": {
+          "context_hit": 1.0,
+          "accuracy": 1.0,
+          "n": 5
+        },
+        "taboo": {
+          "context_hit": 0.4,
+          "accuracy": 0.8,
+          "n": 10
+        }
+      }
+    },
+    {
+      "key": "G",
+      "name": "完整两路 + 别名查询扩展",
+      "n": 26,
+      "context_hit": 0.731,
+      "accuracy": 0.885,
+      "completeness": 0.865,
+      "hallucination": 0.0,
+      "avg_ctx_chars": 1115.0,
+      "by_intent": {
+        "general": {
+          "context_hit": 0.909,
+          "accuracy": 0.909,
+          "n": 11
+        },
+        "substitute": {
+          "context_hit": 1.0,
+          "accuracy": 1.0,
+          "n": 5
+        },
+        "taboo": {
+          "context_hit": 0.4,
+          "accuracy": 0.8,
+          "n": 10
+        }
+      }
+    },
+    {
+      "key": "H",
+      "name": "完整两路 + RRF 倒数排名融合",
+      "n": 26,
+      "context_hit": 0.731,
+      "accuracy": 0.885,
+      "completeness": 0.865,
+      "hallucination": 0.0,
+      "avg_ctx_chars": 1102.5,
+      "by_intent": {
+        "general": {
+          "context_hit": 0.909,
+          "accuracy": 0.909,
+          "n": 11
+        },
+        "substitute": {
+          "context_hit": 1.0,
+          "accuracy": 1.0,
+          "n": 5
+        },
+        "taboo": {
+          "context_hit": 0.4,
+          "accuracy": 0.8,
+          "n": 10
+        }
+      }
+    }
+  ],
+  "note": "全部数据由本脚本真实运行得到；判定口径与 evaluate.py 一致"
+}

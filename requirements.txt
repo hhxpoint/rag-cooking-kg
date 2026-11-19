@@ -1,0 +1,18 @@
+# 基于RAG的烹饪知识图谱构建与推理系统 —— 运行依赖
+# 本系统以"零外部依赖、可离线运行"为设计目标，仅需以下少量依赖：
+networkx>=2.8          # 知识图谱存储与查询
+jieba>=0.42            # 可选：中文分词增强（不装也能运行，自动退化为字+二元组切分）
+# 说明：Web 服务使用 Python 标准库 http.server，无需 FastAPI/uvicorn；
+#       检索使用自实现的 BM25，无需 scikit-learn；无需 GPU、无需联网。
+#
+# ---- 以下仅"重建图表与课程设计报告"时需要，运行系统本身不需要 ----
+# python-docx>=1.0      # 生成 .docx 报告
+# matplotlib>=3.7       # 生成纯灰度学术图表
+# 安装方式：pip install python-docx matplotlib
+# 报告生成脚本已内置纯黑排版 / 三线表 / 自动目录 / 页码，见 交付说明.md 第二节。
+#
+# ---- 以下仅"重新生成系统演示视频"时需要 ----
+# opencv-python>=4.8     # MP4 帧合成
+# Pillow>=10             # 截图字幕叠加（matplotlib 通常已带上）
+# 另需本机 Chrome 或 Edge（Chromium 内核），且服务已启动，见 交付说明.md 第六节。
+# 安装方式：pip install opencv-python Pillow

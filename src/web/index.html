@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>基于RAG的烹饪知识图谱构建与推理系统</title>
+<script src="/static/d3.v7.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+         background: #f4f6f9; color: #1f2937; }
+  header { background: linear-gradient(90deg,#2c5282,#3182ce); color: #fff; padding: 14px 24px;
+           box-shadow: 0 2px 6px rgba(0,0,0,.1); }
+  header h1 { margin: 0; font-size: 20px; }
+  header small { opacity: .85; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; background: #fff; padding: 8px 16px;
+        border-bottom: 1px solid #e5e7eb; }
+  nav button { border: none; background: #eef2f7; color: #2c5282; padding: 8px 14px;
+               border-radius: 6px; cursor: pointer; font-size: 14px; }
+  nav button.active { background: #3182ce; color: #fff; }
+  main { padding: 18px 24px; max-width: 1200px; margin: 0 auto; }
+  .tab { display: none; } .tab.active { display: block; }
+  .card { background: #fff; border-radius: 10px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+          margin-bottom: 16px; }
+  h2 { margin-top: 0; font-size: 17px; color: #2c5282; }
+  label { display: block; font-size: 13px; color: #4b5563; margin: 10px 0 4px; }
+  input, textarea, select { width: 100%; padding: 9px 10px; border: 1px solid #cbd5e1;
+         border-radius: 6px; font-size: 14px; font-family: inherit; }
+  textarea { min-height: 70px; resize: vertical; }
+  button.action { background: #3182ce; color:#fff; border:none; padding: 9px 18px; border-radius:6px;
+         cursor:pointer; font-size:14px; margin-top:10px; }
+  button.action:hover { background:#2c5282; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:180px; }
+  .stat-grid { display:grid; grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+  .stat { background:#eef6ff; border-radius:8px; padding:14px; text-align:center; }
+  .stat .num { font-size:26px; font-weight:700; color:#2c5282; }
+  .stat .lbl { font-size:13px; color:#4b5563; margin-top:4px; }
+  #graph { width:100%; height:560px; border:1px solid #e5e7eb; border-radius:8px; background:#fafcff; }
+  .legend span { display:inline-block; margin-right:12px; font-size:12px; }
+  .dot { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+  .answer { white-space:pre-wrap; background:#f8fafc; border-left:4px solid #3182ce; padding:12px;
+            border-radius:6px; font-size:14px; line-height:1.6; }
+  .risk-high { color:#e15759; font-weight:700; }
+  .risk-mid { color:#f28e2b; font-weight:700; }
+  .risk-low { color:#59a14f; font-weight:700; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { border:1px solid #e5e7eb; padding:7px 9px; text-align:left; }
+  th { background:#f1f5f9; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:12px; background:#eef2f7; }
+  .small { font-size:12px; color:#6b7280; }
+  .alt { padding:8px 10px; border:1px solid #e5e7eb; border-radius:6px; margin-top:8px; }
+  .warn { background:#fff5f5; border-left:4px solid #e15759; padding:8px 10px; margin-top:6px; border-radius:6px; }
+  .sug { background:#f0fff4; border-left:4px solid #59a14f; padding:8px 10px; margin-top:6px; border-radius:6px; }
+  #nodeDetail { font-size:13px; }
+  .kv { margin:3px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>基于RAG的烹饪知识图谱构建与推理系统</h1>
+  <small>知识图谱构建 · 图谱增强RAG问答 · 食材替代与禁忌推理 · 可视化交互 · 后台管理</small>
+</header>
+<nav>
+  <button data-tab="overview" class="active">系统概览</button>
+  <button data-tab="graph">图谱可视化</button>
+  <button data-tab="qa">RAG问答</button>
+  <button data-tab="sub">食材替代</button>
+  <button data-tab="taboo">禁忌校验</button>
+  <button data-tab="admin">后台管理</button>
+</nav>
+<main>
+  <!-- 概览 -->
+  <section class="tab active" id="tab-overview">
+    <div class="card">
+      <h2>系统概览</h2>
+      <div class="stat-grid" id="statGrid"></div>
+      <p class="small" id="relInfo"></p>
+    </div>
+    <div class="card">
+      <h2>系统功能说明</h2>
+      <p>本系统围绕"烹饪领域"构建知识图谱（菜谱/食材/调料/工序/口味/功效/人群七类实体，含包含、属于、搭配、相克、适用、具有功效、采用工序、替代八类关系），
+      并在此基础上实现：</p>
+      <ul>
+        <li><b>图谱增强RAG问答</b>：向量文本召回 + 图谱结构化召回两路融合，回答菜谱与食疗问题；</li>
+        <li><b>食材替代推理</b>：基于属性相似度与显式替代关系，推荐可替代食材；</li>
+        <li><b>饮食禁忌校验</b>：基于规则遍历食材，匹配过敏源/体质/相克，给出风险与调整建议；</li>
+        <li><b>可视化与后台</b>：力导向图谱交互浏览，菜谱数据增删改查。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 图谱 -->
+  <section class="tab" id="tab-graph">
+    <div class="card">
+      <h2>知识图谱可视化</h2>
+      <div class="row">
+        <div><label>搜索实体（菜名/食材，如：番茄炒蛋、牛肉）</label>
+          <input id="graphSearch" placeholder="输入实体名后回车"></div>
+        <div style="flex:0 0 160px"><label>&nbsp;</label>
+          <button class="action" onclick="loadSample()">加载示例图谱</button></div>
+      </div>
+      <div class="legend" style="margin-top:10px">
+        <span><i class="dot" style="background:#4e79a7"></i>菜谱</span>
+        <span><i class="dot" style="background:#59a14f"></i>食材</span>
+        <span><i class="dot" style="background:#e15759"></i>调料</span>
+        <span><i class="dot" style="background:#f28e2b"></i>工序</span>
+        <span><i class="dot" style="background:#edc948"></i>口味</span>
+        <span><i class="dot" style="background:#b07aa1"></i>功效</span>
+        <span><i class="dot" style="background:#76b7b2"></i>人群</span>
+      </div>
+      <svg id="graph"></svg>
+      <div id="nodeDetail" class="card" style="display:none"></div>
+    </div>
+  </section>
+
+  <!-- RAG问答 -->
+  <section class="tab" id="tab-qa">
+    <div class="card">
+      <h2>图谱增强 RAG 问答</h2>
+      <label>你的问题（如：牛奶过敏能用什么替代？ / 补气血的汤有哪些？ / 孕妇能吃螃蟹吗？）</label>
+      <textarea id="qaQuestion"></textarea>
+      <div class="row">
+        <div><label>过敏源（逗号分隔，可空，如：奶,海鲜）</label>
+          <input id="qaAllergies" placeholder="例：奶,海鲜"></div>
+        <div><label>人群/体质（逗号分隔，可空，如：孕妇,高血压）</label>
+          <input id="qaPeople" placeholder="例：孕妇"></div>
+      </div>
+      <button class="action" onclick="askQA()">提问</button>
+      <div id="qaAnswer" class="answer" style="margin-top:12px;display:none"></div>
+    </div>
+  </section>
+
+  <!-- 替代 -->
+  <section class="tab" id="tab-sub">
+    <div class="card">
+      <h2>食材替代推理</h2>
+      <div class="row">
+        <div><label>待替代食材（如：牛奶 / 五花肉）</label>
+          <input id="subIng" placeholder="牛奶"></div>
+        <div><label>过敏源（逗号分隔，可空）</label>
+          <input id="subAllergies" placeholder="奶"></div>
+        <div><label>所在菜品其它食材（逗号分隔，可空）</label>
+          <input id="subDish" placeholder=""></div>
+      </div>
+      <button class="action" onclick="askSub()">推荐替代</button>
+      <div id="subResult" style="margin-top:12px"></div>
+    </div>
+  </section>
+
+  <!-- 禁忌 -->
+  <section class="tab" id="tab-taboo">
+    <div class="card">
+      <h2>饮食禁忌校验推理</h2>
+      <label>食材列表（逗号分隔，如：螃蟹,年糕,姜）</label>
+      <textarea id="tabooIng" placeholder="螃蟹,年糕,姜"></textarea>
+      <div class="row">
+        <div><label>过敏源（逗号分隔，可空）</label>
+          <input id="tabooAllergies" placeholder="海鲜"></div>
+        <div><label>人群/体质（逗号分隔，可空）</label>
+          <input id="tabooPeople" placeholder="孕妇"></div>
+      </div>
+      <button class="action" onclick="askTaboo()">校验</button>
+      <div id="tabooResult" style="margin-top:12px"></div>
+    </div>
+  </section>
+
+  <!-- 后台 -->
+  <section class="tab" id="tab-admin">
+    <div class="card">
+      <h2>后台管理 · 菜谱数据</h2>
+      <div class="row">
+        <div><label>搜索菜名</label><input id="adminSearch" oninput="loadRecipes()" placeholder="输入菜名"></div>
+        <div style="flex:0 0 160px"><label>&nbsp;</label>
+          <button class="action" onclick="openForm()">+ 新增菜谱</button></div>
+      </div>
+      <div id="adminTable" style="margin-top:12px;overflow:auto"></div>
+    </div>
+    <div class="card" id="formCard" style="display:none">
+      <h2 id="formTitle">新增菜谱</h2>
+      <input type="hidden" id="f_id">
+      <div class="row">
+        <div><label>菜名</label><input id="f_name"></div>
+        <div><label>菜系</label><input id="f_cuisine"></div>
+      </div>
+      <div class="row">
+        <div><label>难度</label>
+          <select id="f_difficulty"><option>简单</option><option>中等</option><option>稍难</option></select></div>
+        <div><label>耗时(分钟)</label><input id="f_time" type="number"></div>
+        <div><label>份数</label><input id="f_servings" type="number"></div>
+      </div>
+      <label>食材（逗号分隔，自动归类）</label>
+      <input id="f_ingredients" placeholder="番茄,鸡蛋,食盐">
+      <label>简介</label>
+      <textarea id="f_desc"></textarea>
+      <button class="action" onclick="saveRecipe()">保存</button>
+      <button class="action" style="background:#9ca3af" onclick="closeForm()">取消</button>
+    </div>
+  </section>
+</main>
+
+<script>
+const TYPE_COLORS = {菜谱:"#4e79a7",食材:"#59a14f",调料:"#e15759",工序:"#f28e2b",
+                    口味:"#edc948",功效:"#b07aa1",人群:"#76b7b2",禁忌:"#9c755f"};
+
+// 选项卡
+document.querySelectorAll('nav button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('tab-'+b.dataset.tab).classList.add('active');
+    if(b.dataset.tab==='overview') loadStats();
+    if(b.dataset.tab==='admin') loadRecipes();
+    if(b.dataset.tab==='graph') loadSample();
+  };
+});
+
+async function api(url, opts){ const r=await fetch(url,opts); return await r.json(); }
+function post(url,body){ return api(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+
+// 概览
+async function loadStats(){
+  const s = await api('/api/stats');
+  const g=document.getElementById('statGrid');
+  g.innerHTML='';
+  const items=[['节点总数',s.nodes],['关系总数',s.edges]];
+  for(const [k,v] of Object.entries(s.type_counter)) items.push(['实体·'+k,v]);
+  items.forEach(([k,v])=>{ g.innerHTML+=`<div class="stat"><div class="num">${v}</div><div class="lbl">${k}</div></div>`; });
+  let rel='关系分布：'; for(const [k,v] of Object.entries(s.rel_counter)) rel+=`${k} ${v}；`;
+  document.getElementById('relInfo').textContent=rel;
+}
+
+// 图谱
+function loadSample(){ api('/api/graph/sample?n=14').then(d=>renderGraph(d)); }
+document.getElementById('graphSearch').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){ const q=e.target.value.trim(); if(q) api('/api/subgraph?name='+encodeURIComponent(q)+'&radius=1').then(d=>renderGraph(d)); }
+});
+function renderGraph(data){
+  const svg=d3.select('#graph'); svg.selectAll('*').remove();
+  const W=svg.node().clientWidth, H=svg.node().clientHeight||560;
+  const sim=d3.forceSimulation(data.nodes)
+    .force('link',d3.forceLink(data.edges).id(d=>d.id).distance(70))
+    .force('charge',d3.forceManyBody().strength(-160))
+    .force('center',d3.forceCenter(W/2,H/2));
+  const link=svg.append('g').selectAll('line').data(data.edges).join('line')
+    .attr('stroke','#cbd5e1').attr('stroke-width',1);
+  const node=svg.append('g').selectAll('g').data(data.nodes).join('g').call(drag(sim));
+  node.append('circle').attr('r',d=>d.type==='菜谱'?9:6)
+    .attr('fill',d=>TYPE_COLORS[d.type]||'#888');
+  node.append('text').text(d=>d.id).attr('font-size',10).attr('dx',10).attr('dy',3)
+    .attr('fill','#374151');
+  node.on('click',(e,d)=>showNode(d.id));
+  sim.on('tick',()=>{
+    link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    node.attr('transform',d=>`translate(${d.x},${d.y})`);
+  });
+}
+function drag(sim){
+  return d3.drag()
+    .on('start',(e,d)=>{ if(!e.active) sim.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y; })
+    .on('drag',(e,d)=>{ d.fx=e.x; d.fy=e.y; })
+    .on('end',(e,d)=>{ if(!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; });
+}
+async function showNode(name){
+  const d=await api('/api/node?name='+encodeURIComponent(name));
+  if(!d){ return; }
+  let html=`<h2 style="font-size:15px">${name} <span class="pill">${d.attrs.type}</span></h2>`;
+  for(const k of ['cat','nature','allergen']) if(d.attrs[k]) html+=`<div class="kv"><b>${k}:</b> ${d.attrs[k]}</div>`;
+  html+='<div class="kv"><b>出边关系：</b></div>';
+  d.out.forEach(r=>html+=`<div class="kv">· ${r.relation} → ${r.target} <span class="pill">${r.target_type}</span></div>`);
+  const box=document.getElementById('nodeDetail'); box.style.display='block'; box.innerHTML=html;
+}
+
+// RAG问答
+async function askQA(){
+  const q=document.getElementById('qaQuestion').value.trim(); if(!q) return;
+  const profile={};
+  const al=document.getElementById('qaAllergies').value.trim(); if(al) profile.allergies=al.split(/[,，]/).map(s=>s.trim());
+  const pe=document.getElementById('qaPeople').value.trim(); if(pe) profile.people=pe.split(/[,，]/).map(s=>s.trim());
+  const r=await post('/api/qa',{question:q,profile});
+  const box=document.getElementById('qaAnswer'); box.style.display='block';
+  box.textContent=r.answer;
+}
+
+// 替代
+async function askSub(){
+  const ing=document.getElementById('subIng').value.trim(); if(!ing) return;
+  const allergies=document.getElementById('subAllergies').value.trim();
+  const dish=document.getElementById('subDish').value.trim();
+  const body={ingredient:ing};
+  if(allergies) body.allergies=allergies.split(/[,，]/).map(s=>s.trim());
+  if(dish) body.dish=dish.split(/[,，]/).map(s=>s.trim());
+  const r=await post('/api/substitute',body);
+  let html=`<h3>${r.ingredient} 的替代推荐</h3>`;
+  if(!r.alternatives.length) html+='<p>暂无可推荐替代。</p>';
+  r.alternatives.forEach((a,i)=>{
+    html+=`<div class="alt"><b>${i+1}. ${a.name}</b> <span class="pill">得分 ${a.score}</span><br><span class="small">${a.reason}</span></div>`;
+  });
+  document.getElementById('subResult').innerHTML=html;
+}
+
+// 禁忌
+async function askTaboo(){
+  const ing=document.getElementById('tabooIng').value.trim(); if(!ing) return;
+  const profile={};
+  const al=document.getElementById('tabooAllergies').value.trim(); if(al) profile.allergies=al.split(/[,，]/).map(s=>s.trim());
+  const pe=document.getElementById('tabooPeople').value.trim(); if(pe) profile.people=pe.split(/[,，]/).map(s=>s.trim());
+  const r=await post('/api/taboo',{ingredients:ing.split(/[,，]/).map(s=>s.trim()),profile});
+  let cls=r.risk_level==='高'?'risk-high':(r.risk_level==='中'?'risk-mid':'risk-low');
+  let html=`<h3>风险等级：<span class="${cls}">${r.risk_level}</span></h3>`;
+  if(r.warnings.length===0) html+='<p>未发现明显禁忌，可放心食用。</p>';
+  r.warnings.forEach(w=>html+=`<div class="warn">[${w.level}] ${w.type}：${w.detail}</div>`);
+  r.suggestions.forEach(s=>html+=`<div class="sug">建议：${s}</div>`);
+  document.getElementById('tabooResult').innerHTML=html;
+}
+
+// 后台管理
+async function loadRecipes(){
+  const q=document.getElementById('adminSearch').value.trim();
+  const list=await api('/api/recipes?q='+encodeURIComponent(q)+'&limit=200');
+  let html='<table><tr><th>ID</th><th>菜名</th><th>菜系</th><th>难度</th><th>耗时</th><th>操作</th></tr>';
+  list.forEach(r=>{
+    html+=`<tr><td>${r.id}</td><td>${r.name}</td><td>${r.cuisine}</td><td>${r.difficulty}</td><td>${r.cooking_time}分</td>
+      <td><button onclick="openForm('${r.id}')">编辑</button> <button onclick="delRecipe('${r.id}')">删除</button></td></tr>`;
+  });
+  html+='</table>';
+  document.getElementById('adminTable').innerHTML=html;
+}
+async function openForm(id){
+  document.getElementById('formCard').style.display='block';
+  if(id){
+    const r=await api('/api/recipes/'+id);
+    document.getElementById('formTitle').textContent='编辑菜谱';
+    document.getElementById('f_id').value=r.id;
+    document.getElementById('f_name').value=r.name;
+    document.getElementById('f_cuisine').value=r.cuisine;
+    document.getElementById('f_difficulty').value=r.difficulty;
+    document.getElementById('f_time').value=r.cooking_time;
+    document.getElementById('f_servings').value=r.servings;
+    document.getElementById('f_ingredients').value=r.ingredients.map(i=>i.name).join(',');
+    document.getElementById('f_desc').value=r.description||'';
+  } else {
+    document.getElementById('formTitle').textContent='新增菜谱';
+    ['f_id','f_name','f_cuisine','f_time','f_servings','f_ingredients','f_desc'].forEach(k=>document.getElementById(k).value='');
+    document.getElementById('f_difficulty').value='简单';
+  }
+}
+function closeForm(){ document.getElementById('formCard').style.display='none'; }
+async function saveRecipe(){
+  const name=document.getElementById('f_name').value.trim(); if(!name){ alert('请填写菜名'); return; }
+  const ings=document.getElementById('f_ingredients').value.split(/[,，]/).map(s=>s.trim()).filter(Boolean);
+  const id=document.getElementById('f_id').value;
+  const data={
+    name, cuisine:document.getElementById('f_cuisine').value,
+    difficulty:document.getElementById('f_difficulty').value,
+    cooking_time:+document.getElementById('f_time').value||15,
+    servings:+document.getElementById('f_servings').value||2,
+    ingredients:ings.map(n=>({name:n,amount:'适量',category:'食材'})),
+    steps:[document.getElementById('f_desc').value||'（用户自定义菜谱）'],
+    flavors:[], effects:[], suitable_for:['一般人群'], taboos:[],
+    description:document.getElementById('f_desc').value
+  };
+  if(id){ await api('/api/recipes/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}); }
+  else { await post('/api/recipes',data); }
+  closeForm(); loadRecipes();
+}
+async function delRecipe(id){ if(confirm('确认删除 '+id+' ?')){ await api('/api/recipes/'+id,{method:'DELETE'}); loadRecipes(); } }
+
+// 初始化
+loadStats();
+</script>
+
+<!-- 演示模式：仅当 URL 带 ?demo=N 时启用，用于自动生成无声演示视频的真实界面帧。
+     正常访问（不带参数）时完全不执行，系统行为不受任何影响。 -->
+<script>
+(async function () {
+  const p = new URLSearchParams(location.search);
+  const step = p.get('demo');
+  if (step === null) return;
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const fill = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
+  const tab = t => { const b = document.querySelector('nav button[data-tab="' + t + '"]'); if (b) b.click(); };
+  async function until(fn, ms = 9000) {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) { try { if (fn()) return true; } catch (e) {} await wait(120); }
+    return false;
+  }
+  const qaReady = () => until(() => document.getElementById('qaAnswer').textContent.trim().length > 10);
+  try {
+    switch (step) {
+      case '1':                                   // 系统概览
+        await until(() => document.querySelectorAll('#statGrid .stat').length > 2);
+        break;
+      case '2':                                   // 图谱可视化：示例力导向图
+        tab('graph');
+        await until(() => document.querySelectorAll('#graph circle').length > 3);
+        await wait(1500);                         // 等力导向布局收敛
+        break;
+      case '3': {                                 // 图谱可视化：搜索实体 + 节点详情
+        tab('graph');
+        await until(() => typeof d3 !== 'undefined' && document.querySelectorAll('#graph circle').length > 3);
+        fill('graphSearch', '牛肉');
+        // 演示模式下压缩画布高度，使"节点详情"与图谱同时进入视口（正常访问不受影响）
+        document.getElementById('graph').style.height = '340px';
+        const nd = document.getElementById('nodeDetail');
+        nd.style.maxHeight = '190px'; nd.style.overflow = 'auto';
+        const d = await api('/api/subgraph?name=' + encodeURIComponent('牛肉') + '&radius=1');
+        renderGraph(d);
+        await until(() => document.querySelectorAll('#graph circle').length > 10);
+        await wait(1500);
+        await showNode('牛肉');
+        await until(() => document.getElementById('nodeDetail').style.display === 'block');
+        break;
+      }
+      case '4':                                   // RAG 问答：通用菜谱检索
+        tab('qa'); fill('qaQuestion', '补气血的汤有哪些？');
+        await askQA(); await qaReady(); break;
+      case '5':                                   // RAG 问答：替代 + 过敏画像
+        tab('qa'); fill('qaQuestion', '牛奶过敏能用什么替代？'); fill('qaAllergies', '奶');
+        await askQA(); await qaReady(); break;
+      case '6':                                   // RAG 问答：饮食禁忌
+        tab('qa'); fill('qaQuestion', '孕妇能吃螃蟹吗？');
+        await askQA(); await qaReady(); break;
+      case '7':                                   // 食材替代推理
+        tab('sub'); fill('subIng', '五花肉');
+        await askSub();
+        await until(() => document.querySelectorAll('#subResult .alt').length > 0);
+        break;
+      case '8':                                   // 饮食禁忌校验
+        tab('taboo'); fill('tabooIng', '螃蟹,年糕,姜'); fill('tabooPeople', '孕妇');
+        await askTaboo();
+        await until(() => document.querySelectorAll('#tabooResult h3').length > 0);
+        break;
+      case '9':                                   // 后台管理：菜谱列表
+        tab('admin');
+        await until(() => document.querySelectorAll('#adminTable tr').length > 3);
+        break;
+      case '10':                                  // 后台管理：新增菜谱表单
+        tab('admin');
+        await until(() => document.querySelectorAll('#adminTable tr').length > 3);
+        // 演示模式下限制列表高度，使"新增菜谱"表单进入视口（正常访问不受影响）
+        document.getElementById('adminTable').style.maxHeight = '300px';
+        openForm(); await wait(300);
+        break;
+      case '11':                                  // RAG 问答：相克/禁忌意图
+        tab('qa'); fill('qaQuestion', '番茄和鸡蛋能一起吃吗？');
+        await askQA(); await qaReady(); break;
+      case '12':                                  // RAG 问答：功效标签检索
+        tab('qa'); fill('qaQuestion', '适合老人的补钙菜');
+        await askQA(); await qaReady(); break;
+      case '13':                                  // 食材替代：过敏源过滤
+        tab('sub'); fill('subIng', '牛奶'); fill('subAllergies', '奶');
+        await askSub();
+        await until(() => document.querySelectorAll('#subResult .alt').length > 0);
+        break;
+      case '14':                                  // 禁忌校验：相克关系对
+        tab('taboo'); fill('tabooIng', '鸡蛋,豆浆');
+        await askTaboo();
+        await until(() => document.querySelectorAll('#tabooResult h3').length > 0);
+        break;
+    }
+  } catch (e) { console.error('demo error', e); }
+  document.body.setAttribute('data-demo-ready', '1');
+})();
+</script>
+</body>
+</html>
